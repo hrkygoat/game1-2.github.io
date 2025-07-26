@@ -106,7 +106,7 @@ function playBGMForCurrentStage() {
 const assets = {
     playerRun: { img: new Image(), src: 'assets/images/player_run.png' },
     playerJump: { img: new Image(), src: 'assets/images/player_jump.png' },
-    enemy: { img: new Image(), src: 'assets/images/enemy.png' },
+    enemy: { img: new Image(), src: 'assets/images/enemy.png' }, // enemy.pngをスプライトシートとして使用
     flyingEnemy: { img: new Image(), src: 'assets/images/flying_enemy.png' },
     groundEnemy2: { img: new Image(), src: 'assets/images/ground_enemy.png' },
     stage2Enemy: { img: new Image(), src: 'assets/images/stage2_enemy.png' }, // ステージ2/4の敵、ボス画像
@@ -392,6 +392,15 @@ class Enemy {
         this.stompedTimer = 0;
         this.stompedDuration = 200;
         this.squishFactor = 0.2;
+
+        // --- アニメーション関連プロパティ (新規追加) ---
+        this.frameWidth = 65; // enemy.pngの1フレームの幅
+        this.frameHeight = 40; // enemy.pngの1フレームの高さ
+        this.maxFrames = 4; // enemy.pngのスプライトシートの総フレーム数
+        this.currentFrame = 0;
+        this.frameCounter = 0;
+        this.animationSpeed = 10; // アニメーションの速度 (小さいほど速い)
+        // ------------------------------------------
     }
 
     draw() {
@@ -400,14 +409,25 @@ class Enemy {
         let currentHeight = this.height;
         let currentY = this.y;
         let currentImage = this.image;
+        let sx = 0; // スプライトシートから切り出すX座標
 
         if (this.isStomped) {
             currentHeight = this.initialHeight * this.squishFactor;
             currentY = this.y + (this.initialHeight - currentHeight);
+            sx = 0; // 踏まれたら最初のフレームを表示など、特定のフレームにする場合は調整
+        } else {
+            // --- アニメーションフレームのX座標を計算 (新規追加) ---
+            sx = this.currentFrame * this.frameWidth;
+            // ---------------------------------------------------
         }
 
         if (currentImage.complete && currentImage.naturalHeight !== 0) {
-            ctx.drawImage(currentImage, this.x, currentY, this.width, currentHeight);
+            // drawImageの引数を変更し、スプライトシートから適切なフレームを切り出す
+            ctx.drawImage(currentImage,
+                          sx, 0, // ソースのX, Y座標
+                          this.frameWidth, this.frameHeight, // ソースの幅, 高さ
+                          this.x, currentY, // 描画先のX, Y座標
+                          this.width, currentHeight); // 描画先の幅, 高さ
         } else {
             ctx.fillStyle = 'green';
             ctx.fillRect(this.x, currentY, this.width, currentHeight);
@@ -429,6 +449,14 @@ class Enemy {
             if (this.x + this.width < 0) {
                 this.active = false;
             }
+
+            // --- アニメーションフレームの更新 (新規追加) ---
+            this.frameCounter++;
+            if (this.frameCounter >= this.animationSpeed) {
+                this.frameCounter = 0;
+                this.currentFrame = (this.currentFrame + 1) % this.maxFrames;
+            }
+            // ------------------------------------------------
         }
     }
 }
@@ -443,10 +471,16 @@ class FlyingEnemy extends Enemy {
         this.amplitude = amplitude;
         this.frequency = frequency; // ラジアン/秒
         this.angle = Math.random() * Math.PI * 2;
+        // FlyingEnemy は独自の画像を持つため、アニメーションプロパティは上書きしない、または調整する
+        // flying_enemy.png がスプライトシートの場合、ここで独自のフレーム情報を設定
+        this.frameWidth = 60; // 例: 飛行敵の1フレームの幅
+        this.frameHeight = 40; // 例: 飛行敵の1フレームの高さ
+        this.maxFrames = 2; // 例: 飛行敵のスプライトシートの総フレーム数
+        this.animationSpeed = 15; // 例: 飛行敵のアニメーション速度
     }
 
     update(deltaTime) {
-        super.update(deltaTime);
+        super.update(deltaTime); // 親クラスのupdateを呼び出して水平移動とアニメーションを処理
         if (isGamePaused || isGamePausedForDamage || this.isStomped) {
             return;
         }
@@ -461,6 +495,11 @@ class FlyingEnemy extends Enemy {
 class GroundEnemy2 extends Enemy {
     constructor(x, y, width, height, speed) {
         super(x, y, width, height, speed, assets.groundEnemy2.img);
+        // ground_enemy.png がスプライトシートの場合、ここで独自のフレーム情報を設定
+        this.frameWidth = 64; // 例: 地上敵2の1フレームの幅
+        this.frameHeight = 64; // 例: 地上敵2の1フレームの高さ
+        this.maxFrames = 2; // 例: 地上敵2のスプライトシートの総フレーム数
+        this.animationSpeed = 10; // 例: 地上敵2のアニメーション速度
     }
 }
 
@@ -468,6 +507,11 @@ class GroundEnemy2 extends Enemy {
 class Stage2GroundEnemy extends Enemy {
     constructor(x, y, width, height, speed) {
         super(x, y, width, height, speed, assets.stage2Enemy.img);
+        // stage2_enemy.png がスプライトシートの場合、ここで独自のフレーム情報を設定
+        this.frameWidth = 64; // 例: ステージ2/4敵の1フレームの幅
+        this.frameHeight = 64; // 例: ステージ2/4敵の1フレームの高さ
+        this.maxFrames = 2; // 例: ステージ2/4敵のスプライトシートの総フレーム数
+        this.animationSpeed = 10; // 例: ステージ2/4敵のアニメーション速度
     }
 }
 
@@ -480,6 +524,11 @@ class BombDropperEnemy extends Enemy {
         this.dropCooldown = 0;
         this.maxDropCooldown = 2000 + Math.random() * 1000; // 2秒から3秒
         this.bombDropSpeed = 0; // ボムの初期Y速度
+        // bomb_dropper.png がスプライトシートの場合、ここで独自のフレーム情報を設定
+        this.frameWidth = 48; // 例: 爆弾落とし敵の1フレームの幅
+        this.frameHeight = 48; // 例: 爆弾落とし敵の1フレームの高さ
+        this.maxFrames = 2; // 例: 爆弾落とし敵のスプライトシートの総フレーム数
+        this.animationSpeed = 15; // 例: 爆弾落とし敵のアニメーション速度
     }
 
     update(deltaTime) {
@@ -518,6 +567,12 @@ class BossEnemy extends Enemy {
         this.bossSpeed = speed; // ボス独自の移動速度
         this.isDefeated = false;
         this.y = canvas.height - this.height; // 地面に着地
+
+        // ボスは独自のフレーム情報を持つ
+        this.frameWidth = 100; // 例: ボスの1フレームの幅
+        this.frameHeight = 100; // 例: ボスの1フレームの高さ
+        this.maxFrames = 2; // 例: ボスのスプライトシートの総フレーム数
+        this.animationSpeed = 10; // 例: ボスのアニメーション速度
 
         // ジャンプ関連
         this.isJumping = false;
@@ -595,6 +650,13 @@ class BossEnemy extends Enemy {
                 this.jumpCooldown = this.maxJumpCooldown; // 次のジャンプまでのクールダウンをリセット
             }
         }
+        // ここからアニメーションフレームの更新ロジックを直接記述
+        // super.update(deltaTime); の呼び出しを削除し、親クラスの余分な水平移動を防ぐ
+        this.frameCounter++;
+        if (this.frameCounter >= this.animationSpeed) {
+            this.frameCounter = 0;
+            this.currentFrame = (this.currentFrame + 1) % this.maxFrames;
+        }
     }
 
     startJump() {
@@ -638,6 +700,8 @@ function spawnEnemy() {
             enemyWidth = 80;
             enemyHeight = 40;
             enemySpeed = 100 + Math.random() * 50; // ピクセル/秒
+            // enemy.pngがスプライトシートであるため、新しいインスタンスを作成
+            // Enemyクラスのコンストラクタで、フレーム情報が設定される
             enemies.push(new Enemy(canvas.width, canvas.height - enemyHeight, enemyWidth, enemyHeight, enemySpeed, assets.enemy.img));
         } else if (random < 0.8) {
             enemyWidth = 50;
